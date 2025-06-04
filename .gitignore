@@ -1,0 +1,82 @@
+# Build directories
+build/
+bin/
+cmake-build-*/
+CMakeFiles/
+CMakeCache.txt
+cmake_install.cmake
+Makefile
+*.make
+
+# Compiled binaries
+ScreenRecorder
+*.exe
+*.out
+*.app
+
+# Object files
+*.o
+*.obj
+*.so
+*.dylib
+*.dll
+*.a
+*.lib
+
+# CMake generated files
+CMakeFiles/
+CMakeCache.txt
+cmake_install.cmake
+install_manifest.txt
+compile_commands.json
+CTestTestfile.cmake
+_deps
+
+# IDE files
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.DS_Store
+Thumbs.db
+
+# Logs and temporary files
+*.log
+*.tmp
+*.temp
+core
+core.*
+
+# Video output files (if your recorder saves files)
+*.mp4
+*.avi
+*.mkv
+*.mov
+*.webm
+recordings/
+output/
+
+# Debug files
+*.dSYM/
+*.pdb
+gdb.txt
+
+# Package files
+*.deb
+*.rpm
+*.tar.gz
+*.zip
+
+# Editor backup files
+*~
+*.bak
+*.orig
+.#*
+\#*#
+
+# Test coverage
+coverage/
+*.gcov
+*.gcda
+*.gcno
