@@ -6,6 +6,7 @@
 #include <fstream>
 #include <libyuv.h>
 #include <jpeglib.h>
+#include <filesystem>
 
 namespace
 {
@@ -232,6 +233,13 @@ namespace screen_recorder
         {
             std::cerr << "Failed to convert ARGB to RGB using libyuv" << std::endl;
             return;
+        }
+
+        std::filesystem::path outputDir = "out";
+        if (!std::filesystem::exists(outputDir))
+        {
+            std::filesystem::create_directories(outputDir);
+            std::cout << "Created output directory: " << outputDir << std::endl;
         }
 
         // Write JPEG file
