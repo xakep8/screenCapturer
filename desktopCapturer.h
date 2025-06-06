@@ -17,6 +17,14 @@ struct DisplayDeleter {
     }
 };
 
+struct ImageDeleter {
+    void operator()(XImage* image) const {
+        if (image) {
+            XDestroyImage(image);
+        }
+    }
+};
+
 namespace screen_recorder {
 class DesktopCapture {
 private:
@@ -32,7 +40,8 @@ private:
 public:
     DesktopCapture();
     ~DesktopCapture();
-    void startCapture();
+    void startCapture(auto window_id);
+    void stopCapture();
 };
 }
 #endif

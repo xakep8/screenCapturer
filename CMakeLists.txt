@@ -2,10 +2,11 @@ cmake_minimum_required(VERSION 3.16)
 project(ScreenRecorder VERSION 1.0.0 LANGUAGES CXX)
 
 # Set C++ standard
-set(CMAKE_CXX_STANDARD 17)
+set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
 # Find required packages
+find_package(JPEG REQUIRED libjpeg)
 find_package(PkgConfig REQUIRED)
 find_package(X11 REQUIRED)
 
@@ -58,6 +59,7 @@ add_executable(${PROJECT_NAME}
 # Link libraries
 target_link_libraries(${PROJECT_NAME}
     ${X11_LIBRARIES}
+    ${JPEG_LIBRARIES}
     # ${XEXT_LIBRARIES}
     # ${XFIXES_LIBRARIES}
 )

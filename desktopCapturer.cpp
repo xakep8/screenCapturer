@@ -3,29 +3,14 @@
 #include <iostream>
 #include <memory>
 #include <vector>
+#include <fstream>
+#include <libyuv.h>
+#include <jpeglib.h>
 
 namespace
 {
-    void get_all_windows(Display *display, Window window, std::vector<Window> &windows)
-    {
-        Window root_return, parent_return;
-        Window *children_return;
-        unsigned int nchildren_return;
 
-        if (XQueryTree(display, window, &root_return, &parent_return, &children_return, &nchildren_return))
-        {
-            for (unsigned int i = 0; i < nchildren_return; i++)
-            {
-                windows.push_back(children_return[i]);
-                get_all_windows(display, children_return[i], windows);
-            }
-            if (children_return)
-            {
-                XFree(children_return);
-            }
-        }
-    }
-    bool is_window_capturable(Display *display, Window window)
+    bool isWindowCapturable(Display *display, Window window)
     {
         XWindowAttributes attrs;
         if (XGetWindowAttributes(display, window, &attrs) == 0)
@@ -39,8 +24,31 @@ namespace
                 attrs.height > 10 &&
                 attrs.c_class == InputOutput);
     }
+    void getAllWindows(Display *display, Window window, std::vector<Window> &windows)
+    {
+        Window rootReturn, parentReturn;
+        Window *childrenReturn;
+        unsigned int nchildrenReturn;
 
-    std::string get_window_class(Display *display, Window window)
+        if (XQueryTree(display, window, &rootReturn, &parentReturn, &childrenReturn, &nchildrenReturn))
+        {
+            for (unsigned int i = 0; i < nchildrenReturn; i++)
+            {
+                bool isCapturable = isWindowCapturable(display, childrenReturn[i]);
+                if (isCapturable)
+                {
+                    windows.push_back(childrenReturn[i]);
+                }
+                getAllWindows(display, childrenReturn[i], windows);
+            }
+            if (childrenReturn)
+            {
+                XFree(childrenReturn);
+            }
+        }
+    }
+
+    std::string getWindowClass(Display *display, Window window)
     {
         XClassHint class_hint;
         if (XGetClassHint(display, window, &class_hint))
@@ -53,6 +61,49 @@ namespace
             return result;
         }
         return "Unknown";
+    }
+
+    bool writeJPEG(const std::string &filename, uint8_t *image_buffer,
+                   int width, int height, int quality)
+    {
+        FILE *outfile = fopen(filename.c_str(), "wb");
+        if (!outfile)
+        {
+            std::cerr << "Failed to open file: " << filename << std::endl;
+            return false;
+        }
+
+        jpeg_compress_struct cinfo;
+        jpeg_error_mgr jerr;
+
+        cinfo.err = jpeg_std_error(&jerr);
+        jpeg_create_compress(&cinfo);
+        jpeg_stdio_dest(&cinfo, outfile);
+
+        cinfo.image_width = width;
+        cinfo.image_height = height;
+        cinfo.input_components = 3;
+        cinfo.in_color_space = JCS_RGB;
+
+        jpeg_set_defaults(&cinfo);
+        jpeg_set_quality(&cinfo, quality, TRUE);
+
+        jpeg_start_compress(&cinfo, TRUE);
+
+        JSAMPROW row_pointer[1];
+        int row_stride = width * 3;
+
+        while (cinfo.next_scanline < cinfo.image_height)
+        {
+            row_pointer[0] = &image_buffer[cinfo.next_scanline * row_stride];
+            jpeg_write_scanlines(&cinfo, row_pointer, 1);
+        }
+
+        jpeg_finish_compress(&cinfo);
+        fclose(outfile);
+        jpeg_destroy_compress(&cinfo);
+
+        return true;
     }
 }
 
@@ -82,65 +133,120 @@ namespace screen_recorder
         mScreenWidth = mWindowAttributes.width;
         mScreenHeight = mWindowAttributes.height;
         std::cout << "Screen dimensions: " << mScreenWidth << "x" << mScreenHeight << std::endl;
-        std::vector<Window> mWindows;
-        get_all_windows(mDisplay.get(), mRootWindow, mWindows);
+        getAllWindows(mDisplay.get(), mRootWindow, mCapturableWindows);
         std::cout << "\n=== All Windows ===" << std::endl;
-        std::cout << "Total windows found: " << mWindows.size() << std::endl;
+        std::cout << "Total windows found: " << mCapturableWindows.size() << std::endl;
 
         std::cout << "\n=== Capturable Windows ===" << std::endl;
         int capturable_count = 0;
 
-        for (auto window_id : mWindows)
+        for (auto windowId : mCapturableWindows)
         {
             XWindowAttributes attrs;
-            if (XGetWindowAttributes(mDisplay.get(), window_id, &attrs) == 0)
+            if (XGetWindowAttributes(mDisplay.get(), windowId, &attrs) == 0)
             {
                 continue;
             }
 
-            char *window_name = nullptr;
-            XFetchName(mDisplay.get(), window_id, &window_name);
+            char *windowName = nullptr;
+            XFetchName(mDisplay.get(), windowId, &windowName);
 
-            bool capturable = is_window_capturable(mDisplay.get(), window_id);
-            std::string window_class = get_window_class(mDisplay.get(), window_id);
+            std::string windowClass = getWindowClass(mDisplay.get(), windowId);
 
-            // Only print detailed info for potentially capturable windows
-            if (capturable)
+            mCapturableWindows.push_back(windowId);
+            capturable_count++;
+            std::cout << "\n--- Window #" << capturable_count << " ---" << std::endl;
+            std::cout << "ID: " << windowId << std::endl;
+            std::cout << "Name: " << (windowName ? windowName : "Unnamed") << std::endl;
+            std::cout << "Class: " << windowClass << std::endl;
+            std::cout << "Position: " << attrs.x << "," << attrs.y << std::endl;
+            std::cout << "Size: " << attrs.width << "x" << attrs.height << std::endl;
+            std::cout << "Map State: " << (attrs.map_state == IsViewable ? "Viewable" : attrs.map_state == IsUnmapped ? "Unmapped"
+                                                                                                                      : "Unviewable")
+                      << std::endl;
+            std::cout << "Border Width: " << attrs.border_width << std::endl;
+            std::cout << "Depth: " << attrs.depth << " bits" << std::endl;
+            std::cout << "Visual ID: " << attrs.visual->visualid << std::endl;
+            std::cout << "Backing Store: " << attrs.backing_store << std::endl;
+            std::cout << "Class: " << (attrs.c_class == InputOutput ? "InputOutput" : "InputOnly") << std::endl;
+
+            if (windowName)
             {
-                capturable_count++;
-                std::cout << "\n--- Window #" << capturable_count << " ---" << std::endl;
-                std::cout << "ID: " << window_id << std::endl;
-                std::cout << "Name: " << (window_name ? window_name : "Unnamed") << std::endl;
-                std::cout << "Class: " << window_class << std::endl;
-                std::cout << "Position: " << attrs.x << "," << attrs.y << std::endl;
-                std::cout << "Size: " << attrs.width << "x" << attrs.height << std::endl;
-                std::cout << "Map State: " << (attrs.map_state == IsViewable ? "Viewable" : attrs.map_state == IsUnmapped ? "Unmapped"
-                                                                                                                          : "Unviewable")
-                          << std::endl;
-                std::cout << "Border Width: " << attrs.border_width << std::endl;
-                std::cout << "Depth: " << attrs.depth << " bits" << std::endl;
-                std::cout << "Visual ID: " << attrs.visual->visualid << std::endl;
-                std::cout << "Backing Store: " << attrs.backing_store << std::endl;
-                std::cout << "Class: " << (attrs.c_class == InputOutput ? "InputOutput" : "InputOnly") << std::endl;
-            }
-
-            if (window_name)
-            {
-                XFree(window_name);
+                XFree(windowName);
             }
         }
 
         std::cout << "\n=== Summary ===" << std::endl;
-        std::cout << "Total windows: " << mWindows.size() << std::endl;
+        std::cout << "Total windows: " << mCapturableWindows.size() << std::endl;
         std::cout << "Capturable windows: " << capturable_count << std::endl;
+        startCapture(mCapturableWindows[0]); // Start capturing the first capturable window as an example
     }
     DesktopCapture::~DesktopCapture()
     {
         // Clean up resources if necessary
         std::cout << "DesktopCapture destroyed." << std::endl;
     }
-    void DesktopCapture::startCapture()
+    void DesktopCapture::startCapture(auto windowId)
     {
+        // Start capturing the specified window
+        std::cout << "Starting capture for window ID: " << windowId << std::endl;
+        XWindowAttributes attrs;
+        if (XGetWindowAttributes(mDisplay.get(), windowId, &attrs) == 0)
+        {
+            std::cerr << "Failed to get attributes for window ID: " << windowId << std::endl;
+            return;
+        }
+        mScreenWidth = attrs.width;
+        mScreenHeight = attrs.height;
+        std::cout << "Capturing window: " << windowId << " with size: " << mScreenWidth << "x" << mScreenHeight << std::endl;
+        std::unique_ptr<XImage, ImageDeleter> xImage(
+            XGetImage(mDisplay.get(), windowId, 0, 0, mScreenWidth, mScreenHeight, AllPlanes, ZPixmap));
+        if (!xImage)
+        {
+            std::cerr << "Failed to capture image for window ID: " << windowId << std::endl;
+            return;
+        }
+        std::vector<uint8_t> argb_buffer(mScreenWidth * mScreenHeight * 4);
+        for (int y = 0; y < mScreenHeight; y++)
+        {
+            for (int x = 0; x < mScreenWidth; x++)
+            {
+                unsigned long pixel = XGetPixel(xImage.get(), x, y);
+
+                int idx = (y * mScreenWidth + x) * 4;
+                argb_buffer[idx + 0] = (pixel & 0x00FF0000) >> 16; // B
+                argb_buffer[idx + 1] = (pixel & 0x0000FF00) >> 8;  // G
+                argb_buffer[idx + 2] = (pixel & 0x000000FF);       // R
+                argb_buffer[idx + 3] = 255;                        // A (fully opaque)
+            }
+        }
+
+        // Convert ARGB to RGB using libyuv
+        std::vector<uint8_t> rgb_buffer(mScreenWidth * mScreenHeight * 3);
+        int result = libyuv::ARGBToRGB24(
+            argb_buffer.data(), mScreenWidth * 4,
+            rgb_buffer.data(), mScreenWidth * 3,
+            mScreenWidth, mScreenHeight);
+
+        if (result != 0)
+        {
+            std::cerr << "Failed to convert ARGB to RGB using libyuv" << std::endl;
+            return;
+        }
+
+        // Write JPEG file
+        if (!writeJPEG("out/captured_image.jpg", rgb_buffer.data(), mScreenWidth, mScreenHeight, 90))
+        {
+            std::cerr << "Failed to write JPEG file." << std::endl;
+            return;
+        }
+        std::cout << "Captured image for window ID: " << windowId << std::endl;
+    }
+    void DesktopCapture::stopCapture()
+    {
+        // Stop capturing the current window
+        std::cout << "Stopping capture." << std::endl;
+        // Implementation of stopping logic goes here
     }
 
 } // namespace screen_recorder
