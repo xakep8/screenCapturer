@@ -10,18 +10,36 @@ find_package(JPEG REQUIRED libjpeg)
 find_package(PkgConfig REQUIRED)
 find_package(X11 REQUIRED)
 
+find_path(AVCODEC_INCLUDE_DIR libavcodec/avcodec.h)
+find_path(AVFORMAT_INCLUDE_DIR libavformat/avformat.h) 
+find_path(AVUTIL_INCLUDE_DIR libavutil/avutil.h)
+find_path(SWSCALE_INCLUDE_DIR libswscale/swscale.h)
+
+find_library(AVCODEC_LIBRARY avcodec)
+find_library(AVFORMAT_LIBRARY avformat)
+find_library(AVUTIL_LIBRARY avutil)
+find_library(SWSCALE_LIBRARY swscale)
+
+if(AVCODEC_INCLUDE_DIR AND AVCODEC_LIBRARY AND 
+   AVFORMAT_INCLUDE_DIR AND AVFORMAT_LIBRARY AND
+   AVUTIL_INCLUDE_DIR AND AVUTIL_LIBRARY AND
+   SWSCALE_INCLUDE_DIR AND SWSCALE_LIBRARY)
+    
+    message(STATUS "Found FFMPEG components")
+    set(FFMPEG_FOUND TRUE)
+    set(FFMPEG_INCLUDE_DIRS ${AVCODEC_INCLUDE_DIR} ${AVFORMAT_INCLUDE_DIR} ${AVUTIL_INCLUDE_DIR} ${SWSCALE_INCLUDE_DIR})
+    set(FFMPEG_LIBRARIES ${AVCODEC_LIBRARY} ${AVFORMAT_LIBRARY} ${AVUTIL_LIBRARY} ${SWSCALE_LIBRARY})
+    
+else()
+    message(FATAL_ERROR "FFMPEG components not found")
+endif()
+
 # Find common libraries for screen recording
 # pkg_check_modules(X11 REQUIRED x11)
 # pkg_check_modules(XEXT REQUIRED xext)
 # pkg_check_modules(XFIXES REQUIRED xfixes)
 
 # Try to find libyuv with different possible names
-pkg_check_modules(LIBYUV QUIET libyuv)
-if(NOT LIBYUV_FOUND)
-    pkg_check_modules(LIBYUV QUIET yuv)
-endif()
-
-# If pkg-config doesn't work, try to find it manually
 if(NOT LIBYUV_FOUND)
     find_path(LIBYUV_INCLUDE_DIR libyuv.h 
         PATHS /usr/include /usr/local/include
@@ -53,13 +71,17 @@ endif()
 add_executable(${PROJECT_NAME}
     screenRecorder.cpp
     desktopCapturer.cpp
-    desktopCapturer.h
+    include/desktopCapturer.h
+    include/windowUtils.h
+    include/videoEncoder.h
+    include/imageUtils.h
 )
 
 # Link libraries
 target_link_libraries(${PROJECT_NAME}
     ${X11_LIBRARIES}
     ${JPEG_LIBRARIES}
+    ${FFMPEG_LIBRARIES}
     # ${XEXT_LIBRARIES}
     # ${XFIXES_LIBRARIES}
 )
