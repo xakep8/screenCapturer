@@ -1,4 +1,7 @@
-#include "include/desktopCapturer.h"
+#include "desktopCapturer.h"
+#include "windowUtils.h"
+#include "imageUtils.h"
+#include "videoEncoder.h"
 #include <cstdlib>
 #include <iostream>
 #include <memory>

@@ -21,7 +21,7 @@ namespace video_encoder
         VideoEncoder();
         ~VideoEncoder();
 
-        bool initialize(const std::string &filename, int width, int height, int fps);
+        bool initialize(const std::string &filename, int width, int height, int fps, int bitrate);
         bool encodeFrame(const uint8_t *rgb_buffer, int width, int height);
         void finalize();
 

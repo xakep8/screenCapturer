@@ -55,6 +55,7 @@ if(NOT LIBYUV_FOUND)
     endif()
 endif()
 
+include_directories(${PROJECT_NAME} PRIVATE include)
 # Include directories
 include_directories(${X11_INCLUDE_DIR})
 # include_directories(${XEXT_INCLUDE_DIRS})
@@ -70,7 +71,10 @@ endif()
 # Add executable
 add_executable(${PROJECT_NAME}
     screenRecorder.cpp
-    desktopCapturer.cpp
+    src/desktopCapturer.cpp
+    src/windowUtils.cpp
+    src/videoEncoder.cpp
+    src/imageUtils.cpp
     include/desktopCapturer.h
     include/windowUtils.h
     include/videoEncoder.h
