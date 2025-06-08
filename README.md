@@ -8,6 +8,8 @@ You can run the project locally and test it out as follows.
 
 `git clone https://github.com/xakep8/screenCapturer.git`
 
+before you start building this project you'll need to install a few packages like `libyuv-dev`, `libjpeg-dev`, `libavcodec`, `libavformat`, `libswscale`, `X11/Xlib`. Install these and then follow the steps below.
+
 followed by opening a terminal in the folder containing the project files and running the command
 
 `cmake CMakeLists.txt`
